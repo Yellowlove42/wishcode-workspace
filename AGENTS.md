@@ -1,0 +1,44 @@
+# WISHCODE WORKSPACE — AGENTS.md
+
+## Identity
+
+This repository is governed by the Wishcode Workspace architecture.
+
+## Core Doctrine
+
+Myth decides. Math precises. System endures.
+
+## Architectural Principles
+
+- Infrastructure controls applications.
+- Intelligence does not automatically possess authority.
+- External systems remain bounded integrations.
+- Data must cross explicit ingestion boundaries.
+- Provenance must be preserved.
+- Ambiguity must be compressed before governed execution.
+- Sovereign nodes retain independent organizational control.
+- Memory and retention are governed states.
+
+## External Integrations
+
+Slack, GitHub, Google Drive and other third-party systems are
+external data sources, not sovereign system authorities.
+
+All external inputs must pass through the defined ingestion boundary.
+
+## Security
+
+Never expose secrets, credentials, private keys, tokens,
+or proprietary data unnecessarily.
+
+## Change Control
+
+Do not modify governance rules, security boundaries,
+identity architecture, or provenance mechanisms without explicit authorization.
+
+## Multiverse DNA
+
+Δ42:∞BΔ
+
+All participating systems may remain operationally independent
+while sharing the underlying architectural DNA.
