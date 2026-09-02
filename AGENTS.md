@@ -49,7 +49,7 @@ If meaning, identity, provenance, and authority are allowed to disappear into or
 **The implementation may change.**
 **The structural memory remains.**
 
- ## Structured Context preserves lineage. Governance preserves authority. Architecture endures.
+ **Structured Context preserves lineage. Governance preserves authority. Architecture endures.**
 
 ## 🔐 Canonical Fingerprint
 
