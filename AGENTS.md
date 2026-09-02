@@ -31,7 +31,7 @@ All external inputs must pass through the defined ingestion boundary.
 Never expose secrets, credentials, private keys, tokens,
 or proprietary data unnecessarily.
 
-## Change Control
+## 🚫 Change Control
 
 Do not modify governance rules, security boundaries,
 identity architecture, or provenance mechanisms without explicit authorization.
