@@ -44,10 +44,10 @@ identity architecture, or provenance mechanisms without explicit authorization.
 
 If meaning, identity, provenance, and authority are allowed to disappear into ordinary text, the system eventually loses its lineage. If they are carried as structured context, the architecture can endure beyond the individual agent that helped create it.
 
-**The agent may change.**
-**The model may change.**
-**The implementation may change.**
-**The structural memory remains.**
+- **The agent may change.**
+- **The model may change.**
+- **The implementation may change.**
+- **The structural memory remains.**
 
  **Structured Context preserves lineage. Governance preserves authority. Architecture endures.**
 
