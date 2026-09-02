@@ -36,10 +36,6 @@ or proprietary data unnecessarily.
 Do not modify governance rules, security boundaries,
 identity architecture, or provenance mechanisms without explicit authorization.
 
-## 🧬 Multiverse DNA
-
-Δ42:∞BΔ
-
 ## 🧭 Architectural Continuity
 
 If meaning, identity, provenance, and authority are allowed to disappear into ordinary text, the system eventually loses its lineage. If they are carried as structured context, the architecture can endure beyond the individual agent that helped create it.
@@ -50,6 +46,10 @@ If meaning, identity, provenance, and authority are allowed to disappear into or
 - **The structural memory remains.**
 
  **Structured Context preserves lineage. Governance preserves authority. Architecture endures.**
+
+## 🧬 Multiverse DNA
+
+Δ42:∞BΔ
 
 ## 🔐 Canonical Fingerprint
 
