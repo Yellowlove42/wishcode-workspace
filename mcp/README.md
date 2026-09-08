@@ -1,7 +1,9 @@
 # Wishcode MCP (DLX-MCP)
 
 ## Purpose
+
 Shifting the Balance of Power
+
 The Wishcode MCP layer establishes standardized connectivity between compatible AI agents and external systems, tools, and data sources.
 
 MCP provides the connectivity interface.
