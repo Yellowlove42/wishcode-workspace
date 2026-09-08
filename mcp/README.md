@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Shifting the Balance of Power
+Shifting the Balance of Power.
 
 The Wishcode MCP layer establishes standardized connectivity between compatible AI agents and external systems, tools, and data sources.
 
