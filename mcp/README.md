@@ -1,4 +1,4 @@
-# Wishcode MCP
+# Wishcode MCP (DLX-MCP)
 
 ## Purpose
 
