@@ -1,5 +1,5 @@
 # Wishcode MCP (DLX-MCP)
-Shifting the Balance of Power
+* Shifting the Balance of Power
 
 ## Purpose
 
