@@ -1,5 +1,7 @@
 # Wishcode MCP (DLX-MCP)
 
+DecisionArtifact as a frozen=True Python dataclass.
+
 ## Purpose
 
 Shifting the Balance of Power.
