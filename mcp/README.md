@@ -1,6 +1,7 @@
 # Wishcode MCP (DLX-MCP)
 
-DecisionArtifact as a frozen=True Python dataclass.
+**`DecisionArtifact`** — implemented as a `frozen=True` Python dataclass.
+
 
 ## Purpose
 
