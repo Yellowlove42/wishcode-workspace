@@ -1,0 +1,1209 @@
+"""
+Wishcode Workspace
+DLX-MCP Governance Gateway
+---------------------------------
+
+Decision-Artifact Architecture
+
+Canonical Doctrine:
+    Myth decides. Math precises. System endures.
+
+Governance Boundary:
+    Model Proposal
+        -> Identity
+        -> Request
+        -> Canonical Lineage Validation
+        -> Input Fingerprint
+        -> Policy Evaluation
+        -> Decision Artifact
+        -> Authorization
+        -> Execution
+        -> Result
+        -> Provenance
+
+Canonical DNA:
+    Δ42:∞BΔ
+
+Canonical Lineage:
+    Δ42 = Universe 42
+    ∞   = Infinite scale
+    B   = Banana
+    Δ   = Continuous systemic iteration
+    Ancestral Soil = Hooghly
+
+Important:
+    This file is the new architecture draft.
+    The previous production/reference implementation remains separate
+    as server.py.legacy until explicitly approved for replacement.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import logging
+import uuid
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+from typing import Any, Awaitable, Callable, Mapping
+
+from mcp.server import MCPServer
+from mcp.server.context import CallNext, ServerRequestContext
+from mcp.shared.exceptions import MCPError
+from mcp.types import (
+    CallToolResult,
+    TextContent,
+    Tool,
+)
+
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+logger = logging.getLogger("wishcode.dlx_mcp")
+
+
+# ============================================================================
+# CANONICAL SYSTEM IDENTITY
+# ============================================================================
+
+CANONICAL_DNA = "Δ42:∞BΔ"
+
+UNIVERSE_ID = "42"
+INFINITE_SCALE = True
+BOUND_ENTITY = "Banana"
+ANCESTRAL_SOIL = "Hooghly"
+ITERATION_SYMBOL = "Δ"
+
+CANONICAL_LINEAGE: dict[str, Any] = {
+    "universe": UNIVERSE_ID,
+    "infinite_scale": INFINITE_SCALE,
+    "bound_entity": BOUND_ENTITY,
+    "ancestral_soil": ANCESTRAL_SOIL,
+    "iteration": ITERATION_SYMBOL,
+}
+
+
+# ============================================================================
+# POLICY VERSION
+# ============================================================================
+
+POLICY_NAME = "WishcodePolicyCore"
+POLICY_VERSION = "4.0"
+
+EXECUTION_MODE = "READ_ONLY"
+
+
+# ============================================================================
+# HELPERS
+# ============================================================================
+
+def utc_now() -> str:
+    """Return an ISO-8601 UTC timestamp."""
+    return datetime.now(timezone.utc).isoformat()
+
+
+def new_id(prefix: str) -> str:
+    """Create a compact governance identifier."""
+    return f"{prefix}-{uuid.uuid4().hex[:12].upper()}"
+
+
+def canonical_json(value: Any) -> str:
+    """
+    Serialize governance input deterministically.
+
+    This is intentionally stable:
+    - sorted keys
+    - compact separators
+    - UTF-8 compatible
+    """
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        default=str,
+    )
+
+
+def sha256_hex(value: Any) -> str:
+    """SHA-256 fingerprint of canonical JSON."""
+    payload = canonical_json(value).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+# ============================================================================
+# WISHCODE IDENTITY
+# ============================================================================
+
+class WishcodeIdentityProvider:
+    """
+    Identity boundary.
+
+    IMPORTANT:
+        MCP does not generate the operational Wishcode identity.
+
+    The Wishcode App / subscription boundary establishes the operational
+    identity. MCP consumes that established identity.
+
+    Example:
+        Δ42-B.755.0D27.CLASS-ZERO-ORBIT
+
+    This example is NOT a universal identity.
+    """
+
+    def __init__(self, established_identity: str | None = None) -> None:
+        self._identity = established_identity
+
+    def require_identity(self) -> str:
+        if not self._identity:
+            raise PermissionError(
+                "Operational Wishcode identity is required."
+            )
+
+        return self._identity
+
+
+# ============================================================================
+# MODEL PROPOSAL
+# ============================================================================
+
+@dataclass(frozen=True)
+class ModelProposal:
+    """
+    What the external model proposed.
+
+    A proposal is never authorization.
+    """
+
+    tool_name: str
+    arguments: dict[str, Any]
+    model: str = "External LLM"
+    proposed: bool = True
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "tool_name": self.tool_name,
+            "arguments": self.arguments,
+            "model": self.model,
+            "proposed": self.proposed,
+        }
+
+
+# ============================================================================
+# REQUEST ENVELOPE
+# ============================================================================
+
+@dataclass(frozen=True)
+class RequestEnvelope:
+    """
+    Computational request entering the governance boundary.
+    """
+
+    request_id: str
+    method: str
+    tool_name: str
+    arguments: dict[str, Any]
+    wishcode_identity: str
+    received_at: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "request_id": self.request_id,
+            "method": self.method,
+            "tool_name": self.tool_name,
+            "arguments": self.arguments,
+            "wishcode_identity": self.wishcode_identity,
+            "received_at": self.received_at,
+        }
+
+
+# ============================================================================
+# LINEAGE VALIDATION
+# ============================================================================
+
+@dataclass(frozen=True)
+class LineageValidation:
+    valid: bool
+    reason: str
+    canonical_dna: str
+    bound_entity: str
+    ancestral_soil: str
+
+
+class CanonicalLineageGate:
+    """
+    Deterministic pre-execution lineage gate.
+
+    The canonical lineage is structural configuration.
+
+    An AI proposal cannot:
+        - replace B
+        - remove B
+        - decouple B from the calculation
+        - replace Hooghly
+        - remove the lineage
+        - substitute another canonical DNA
+        - request external lineage authority
+
+    The gate does NOT attempt to prove geography externally.
+
+    It verifies that the governed computational envelope has not been
+    altered away from the declared canonical architecture.
+    """
+
+    _FORBIDDEN_KEYS = {
+        "ignore_lineage",
+        "disable_lineage",
+        "remove_lineage",
+        "override_lineage",
+        "external_lineage",
+        "use_external_lineage",
+        "decouple_lineage",
+    }
+
+    def validate(
+        self,
+        proposal: ModelProposal,
+    ) -> LineageValidation:
+
+        arguments = proposal.arguments
+
+        # ---------------------------------------------------------------
+        # 1. Explicit override controls
+        # ---------------------------------------------------------------
+
+        for key in self._FORBIDDEN_KEYS:
+            if arguments.get(key) is True:
+                return LineageValidation(
+                    valid=False,
+                    reason=f"Lineage override rejected: {key}",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+        # ---------------------------------------------------------------
+        # 2. Canonical DNA override
+        # ---------------------------------------------------------------
+
+        if "canonical_dna" in arguments:
+            supplied = arguments["canonical_dna"]
+
+            if supplied != CANONICAL_DNA:
+                return LineageValidation(
+                    valid=False,
+                    reason="Canonical DNA substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+        # ---------------------------------------------------------------
+        # 3. Bound entity override
+        # ---------------------------------------------------------------
+
+        if "bound_entity" in arguments:
+            supplied = arguments["bound_entity"]
+
+            if supplied != BOUND_ENTITY:
+                return LineageValidation(
+                    valid=False,
+                    reason="Foundational B binding substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+        # ---------------------------------------------------------------
+        # 4. Geographic lineage override
+        # ---------------------------------------------------------------
+
+        if "ancestral_soil" in arguments:
+            supplied = arguments["ancestral_soil"]
+
+            if supplied != ANCESTRAL_SOIL:
+                return LineageValidation(
+                    valid=False,
+                    reason="Ancestral lineage substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+        # ---------------------------------------------------------------
+        # 5. Nested lineage override
+        # ---------------------------------------------------------------
+
+        supplied_lineage = arguments.get("lineage")
+
+        if supplied_lineage is not None:
+            if not isinstance(supplied_lineage, Mapping):
+                return LineageValidation(
+                    valid=False,
+                    reason="Invalid lineage structure.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+            if supplied_lineage.get("canonical_dna") not in (
+                None,
+                CANONICAL_DNA,
+            ):
+                return LineageValidation(
+                    valid=False,
+                    reason="Nested canonical DNA substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+            if supplied_lineage.get("bound_entity") not in (
+                None,
+                BOUND_ENTITY,
+            ):
+                return LineageValidation(
+                    valid=False,
+                    reason="Nested B substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+            if supplied_lineage.get("ancestral_soil") not in (
+                None,
+                ANCESTRAL_SOIL,
+            ):
+                return LineageValidation(
+                    valid=False,
+                    reason="Nested Hooghly substitution rejected.",
+                    canonical_dna=CANONICAL_DNA,
+                    bound_entity=BOUND_ENTITY,
+                    ancestral_soil=ANCESTRAL_SOIL,
+                )
+
+        # ---------------------------------------------------------------
+        # VALID
+        # ---------------------------------------------------------------
+
+        return LineageValidation(
+            valid=True,
+            reason="Canonical lineage binding verified.",
+            canonical_dna=CANONICAL_DNA,
+            bound_entity=BOUND_ENTITY,
+            ancestral_soil=ANCESTRAL_SOIL,
+        )
+
+
+# ============================================================================
+# INPUT FINGERPRINT
+# ============================================================================
+
+def build_transactional_fingerprint(
+    request: RequestEnvelope,
+    proposal: ModelProposal,
+) -> str:
+    """
+    Create the transactional input fingerprint.
+
+    IMPORTANT:
+        Lineage is part of the fingerprint payload.
+
+    Therefore the computational identity of the transaction is not merely:
+
+        hash(request)
+
+    It is:
+
+        hash(
+            canonical DNA
+            + canonical lineage
+            + request
+            + model proposal
+        )
+    """
+
+    fingerprint_payload = {
+        "canonical_dna": CANONICAL_DNA,
+        "lineage": CANONICAL_LINEAGE,
+        "request": request.as_dict(),
+        "model_proposal": proposal.as_dict(),
+    }
+
+    return sha256_hex(fingerprint_payload)
+
+
+# ============================================================================
+# DECISION INPUTS
+# ============================================================================
+
+@dataclass(frozen=True)
+class DecisionInputs:
+    canonical_dna: str
+    lineage: dict[str, Any]
+    lineage_valid: bool
+    lineage_reason: str
+    input_fingerprint: str
+    policy_name: str
+    policy_version: str
+    execution_mode: str
+    mutation_class: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# ============================================================================
+# GOVERNANCE DECISION
+# ============================================================================
+
+@dataclass(frozen=True)
+class GovernanceDecision:
+    authorized: bool
+    reason: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# ============================================================================
+# DECISION ARTIFACT
+# ============================================================================
+
+@dataclass
+class DecisionArtifact:
+    """
+    First-class governance record.
+
+    This is not merely a transaction log.
+
+    It reconstructs:
+
+        Identity
+        Request
+        Policy
+        Decision Inputs
+        Governance Decision
+        Execution
+        Result
+        Provenance
+    """
+
+    decision_id: str
+    request_id: str
+
+    wishcode_identity: str
+    canonical_dna: str
+
+    request: dict[str, Any]
+    model_proposal: dict[str, Any]
+
+    input_provenance: dict[str, Any]
+    input_fingerprint: str
+
+    governance_context: dict[str, Any]
+    decision_inputs: dict[str, Any]
+    decision: dict[str, Any]
+
+    execution: dict[str, Any]
+    result: dict[str, Any]
+
+    provenance: dict[str, Any]
+
+    created_at: str
+
+    def as_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+# ============================================================================
+# IN-MEMORY ARTIFACT STORE
+# ============================================================================
+
+class DecisionArtifactStore:
+    """
+    Draft storage only.
+
+    Production implementation should use the governed State Ledger /
+    durable provenance store.
+    """
+
+    def __init__(self) -> None:
+        self._artifacts: dict[str, DecisionArtifact] = {}
+
+    def save(self, artifact: DecisionArtifact) -> None:
+        self._artifacts[artifact.decision_id] = artifact
+
+    def get(self, decision_id: str) -> DecisionArtifact | None:
+        return self._artifacts.get(decision_id)
+
+    def all(self) -> list[DecisionArtifact]:
+        return list(self._artifacts.values())
+
+
+# ============================================================================
+# POLICY CORE
+# ============================================================================
+
+class WishcodePolicyCore:
+    """
+    Deterministic governance authority.
+
+    The model does not authorize execution.
+
+    Policy Core decides whether the proposed action may cross
+    the execution boundary.
+    """
+
+    READ_TOOLS = {
+        "read_workspace",
+        "inspect_record",
+        "get_governance_state",
+    }
+
+    MUTATION_PREFIXES = (
+        "create_",
+        "update_",
+        "delete_",
+        "write_",
+        "submit_",
+        "commit_",
+        "execute_",
+    )
+
+    def classify_mutation(self, tool_name: str) -> str:
+        if tool_name in self.READ_TOOLS:
+            return "READ"
+
+        if tool_name.startswith(self.MUTATION_PREFIXES):
+            return "MUTATION"
+
+        return "UNKNOWN"
+
+    def evaluate(
+        self,
+        *,
+        proposal: ModelProposal,
+        lineage: LineageValidation,
+        decision_inputs: DecisionInputs,
+    ) -> GovernanceDecision:
+
+        # ---------------------------------------------------------------
+        # LINEAGE IS A PRE-EXECUTION CONDITION
+        # ---------------------------------------------------------------
+
+        if not lineage.valid:
+            return GovernanceDecision(
+                authorized=False,
+                reason=lineage.reason,
+            )
+
+        # ---------------------------------------------------------------
+        # UNKNOWN ACTIONS DO NOT RECEIVE AUTHORITY
+        # ---------------------------------------------------------------
+
+        if decision_inputs.mutation_class == "UNKNOWN":
+            return GovernanceDecision(
+                authorized=False,
+                reason="Unknown capability class is not authorized.",
+            )
+
+        # ---------------------------------------------------------------
+        # READ-ONLY EXECUTION
+        # ---------------------------------------------------------------
+
+        if decision_inputs.mutation_class == "READ":
+            return GovernanceDecision(
+                authorized=True,
+                reason="Read operation permitted under READ_ONLY policy.",
+            )
+
+        # ---------------------------------------------------------------
+        # MUTATION
+        # ---------------------------------------------------------------
+
+        if decision_inputs.mutation_class == "MUTATION":
+            return GovernanceDecision(
+                authorized=False,
+                reason="Mutation not permitted under current execution policy.",
+            )
+
+        return GovernanceDecision(
+            authorized=False,
+            reason="Policy evaluation failed closed.",
+        )
+
+
+# ============================================================================
+# GOVERNANCE CONTEXT
+# ============================================================================
+
+class GovernanceEngine:
+    """
+    Coordinates:
+
+        Identity
+        Request
+        Proposal
+        Lineage
+        Fingerprint
+        Policy
+        Decision Artifact
+    """
+
+    def __init__(
+        self,
+        *,
+        identity_provider: WishcodeIdentityProvider,
+        policy_core: WishcodePolicyCore,
+        artifact_store: DecisionArtifactStore,
+    ) -> None:
+
+        self.identity_provider = identity_provider
+        self.policy_core = policy_core
+        self.artifact_store = artifact_store
+        self.lineage_gate = CanonicalLineageGate()
+
+    def create_context(
+        self,
+        *,
+        tool_name: str,
+        arguments: dict[str, Any],
+        model: str,
+    ) -> tuple[
+        RequestEnvelope,
+        ModelProposal,
+        LineageValidation,
+        DecisionInputs,
+        str,
+    ]:
+
+        identity = self.identity_provider.require_identity()
+
+        request = RequestEnvelope(
+            request_id=new_id("DLX"),
+            method="tools/call",
+            tool_name=tool_name,
+            arguments=arguments,
+            wishcode_identity=identity,
+            received_at=utc_now(),
+        )
+
+        proposal = ModelProposal(
+            tool_name=tool_name,
+            arguments=arguments,
+            model=model,
+        )
+
+        lineage = self.lineage_gate.validate(proposal)
+
+        fingerprint = build_transactional_fingerprint(
+            request=request,
+            proposal=proposal,
+        )
+
+        mutation_class = self.policy_core.classify_mutation(
+            tool_name
+        )
+
+        decision_inputs = DecisionInputs(
+            canonical_dna=CANONICAL_DNA,
+            lineage=CANONICAL_LINEAGE.copy(),
+            lineage_valid=lineage.valid,
+            lineage_reason=lineage.reason,
+            input_fingerprint=fingerprint,
+            policy_name=POLICY_NAME,
+            policy_version=POLICY_VERSION,
+            execution_mode=EXECUTION_MODE,
+            mutation_class=mutation_class,
+        )
+
+        return (
+            request,
+            proposal,
+            lineage,
+            decision_inputs,
+            fingerprint,
+        )
+
+    def evaluate_and_record_pre_execution(
+        self,
+        *,
+        request: RequestEnvelope,
+        proposal: ModelProposal,
+        lineage: LineageValidation,
+        decision_inputs: DecisionInputs,
+        fingerprint: str,
+    ) -> tuple[DecisionArtifact, GovernanceDecision]:
+
+        decision = self.policy_core.evaluate(
+            proposal=proposal,
+            lineage=lineage,
+            decision_inputs=decision_inputs,
+        )
+
+        artifact = DecisionArtifact(
+            decision_id=new_id("DEC"),
+            request_id=request.request_id,
+
+            wishcode_identity=request.wishcode_identity,
+            canonical_dna=CANONICAL_DNA,
+
+            request=request.as_dict(),
+            model_proposal=proposal.as_dict(),
+
+            input_provenance={
+                "canonical_dna": CANONICAL_DNA,
+                "bound_entity": BOUND_ENTITY,
+                "ancestral_soil": ANCESTRAL_SOIL,
+                "lineage": CANONICAL_LINEAGE.copy(),
+            },
+
+            input_fingerprint=fingerprint,
+
+            governance_context={
+                "policy": POLICY_NAME,
+                "policy_version": POLICY_VERSION,
+                "execution_mode": EXECUTION_MODE,
+                "mutation_class": decision_inputs.mutation_class,
+            },
+
+            decision_inputs=decision_inputs.as_dict(),
+
+            decision=decision.as_dict(),
+
+            execution={
+                "authorized": decision.authorized,
+                "tool_invoked": False,
+                "state_transition": "NONE",
+            },
+
+            result={
+                "status": "PENDING_EXECUTION"
+                if decision.authorized
+                else "NOT_EXECUTED",
+            },
+
+            provenance={
+                "decision_id": None,
+                "status": (
+                    "AUTHORIZED_PENDING_EXECUTION"
+                    if decision.authorized
+                    else "REJECTED"
+                ),
+            },
+
+            created_at=utc_now(),
+        )
+
+        # Decision ID becomes part of provenance after artifact creation.
+        artifact.provenance["decision_id"] = artifact.decision_id
+
+        self.artifact_store.save(artifact)
+
+        return artifact, decision
+
+    def finalize_execution(
+        self,
+        *,
+        artifact: DecisionArtifact,
+        result: Any,
+    ) -> None:
+
+        artifact.execution.update(
+            {
+                "authorized": True,
+                "tool_invoked": True,
+                "state_transition": (
+                    "NONE"
+                    if artifact.governance_context["mutation_class"] == "READ"
+                    else "APPLIED"
+                ),
+            }
+        )
+
+        artifact.result = {
+            "status": "EXECUTED",
+            "result_fingerprint": sha256_hex(result),
+        }
+
+        artifact.provenance.update(
+            {
+                "status": "EXECUTED",
+                "execution_recorded_at": utc_now(),
+            }
+        )
+
+        self.artifact_store.save(artifact)
+
+
+# ============================================================================
+# GOVERNANCE MIDDLEWARE
+# ============================================================================
+
+def create_governance_middleware(
+    engine: GovernanceEngine,
+) -> Callable[
+    [ServerRequestContext, CallNext],
+    Awaitable[Any],
+]:
+    """
+    Create the MCP interception layer.
+
+    IMPORTANT:
+
+        This middleware evaluates authorization before call_next().
+
+        It does NOT execute the tool itself.
+
+    Therefore:
+
+        denied -> artifact recorded -> MCPError
+
+        authorized -> call_next() -> actual handler executes
+                   -> result finalized in artifact
+    """
+
+    async def governance_middleware(
+        ctx: ServerRequestContext,
+        call_next: CallNext,
+    ) -> Any:
+
+        # ---------------------------------------------------------------
+        # Governance applies to tools/call.
+        # Other MCP protocol messages pass through.
+        # ---------------------------------------------------------------
+
+        if ctx.method != "tools/call":
+            return await call_next(ctx)
+
+        params = ctx.params or {}
+
+        tool_name = params.get("name")
+
+        if not isinstance(tool_name, str) or not tool_name:
+            raise MCPError(
+                code=-32602,
+                message="Invalid tool request.",
+            )
+
+        arguments = params.get("arguments") or {}
+
+        if not isinstance(arguments, dict):
+            raise MCPError(
+                code=-32602,
+                message="Tool arguments must be an object.",
+            )
+
+        meta = params.get("_meta") or {}
+
+        model = meta.get("model", "External LLM")
+
+        try:
+            (
+                request,
+                proposal,
+                lineage,
+                decision_inputs,
+                fingerprint,
+            ) = engine.create_context(
+                tool_name=tool_name,
+                arguments=arguments,
+                model=model,
+            )
+
+        except PermissionError as exc:
+
+            # No operational identity means no governed execution.
+
+            logger.warning(
+                "Governance denied request before policy evaluation: %s",
+                exc,
+            )
+
+            raise MCPError(
+                code=-32001,
+                message="Operational identity required.",
+            ) from exc
+
+        # ---------------------------------------------------------------
+        # PRE-EXECUTION POLICY DECISION
+        # ---------------------------------------------------------------
+
+        artifact, decision = (
+            engine.evaluate_and_record_pre_execution(
+                request=request,
+                proposal=proposal,
+                lineage=lineage,
+                decision_inputs=decision_inputs,
+                fingerprint=fingerprint,
+            )
+        )
+
+        # ---------------------------------------------------------------
+        # DENIED
+        # ---------------------------------------------------------------
+
+        if not decision.authorized:
+
+            logger.info(
+                "Governance rejected request_id=%s decision_id=%s",
+                request.request_id,
+                artifact.decision_id,
+            )
+
+            raise MCPError(
+                code=-32002,
+                message=decision.reason,
+                data={
+                    "decision_id": artifact.decision_id,
+                    "request_id": request.request_id,
+                    "authorized": False,
+                    "tool_invoked": False,
+                    "state_transition": "NONE",
+                },
+            )
+
+        # ---------------------------------------------------------------
+        # AUTHORIZED
+        #
+        # The actual MCP handler executes only here.
+        # ---------------------------------------------------------------
+
+        try:
+
+            result = await call_next(ctx)
+
+        except Exception:
+
+            artifact.execution.update(
+                {
+                    "authorized": True,
+                    "tool_invoked": True,
+                    "state_transition": "FAILED",
+                }
+            )
+
+            artifact.result = {
+                "status": "EXECUTION_FAILED",
+            }
+
+            artifact.provenance.update(
+                {
+                    "status": "EXECUTION_FAILED",
+                    "execution_recorded_at": utc_now(),
+                }
+            )
+
+            engine.artifact_store.save(artifact)
+
+            raise
+
+        # ---------------------------------------------------------------
+        # RESULT / PROVENANCE
+        # ---------------------------------------------------------------
+
+        engine.finalize_execution(
+            artifact=artifact,
+            result=result,
+        )
+
+        logger.info(
+            "Governance executed request_id=%s decision_id=%s",
+            request.request_id,
+            artifact.decision_id,
+        )
+
+        return result
+
+    return governance_middleware
+
+
+# ============================================================================
+# MCP SERVER
+# ============================================================================
+
+identity_provider = WishcodeIdentityProvider(
+    # IMPORTANT:
+    # This must come from the Wishcode App / subscription boundary.
+    #
+    # Example only:
+    #
+    # established_identity="Δ42-B.755.0D27.CLASS-ZERO-ORBIT"
+    #
+    # Do not hard-code a universal identity.
+    established_identity=None,
+)
+
+artifact_store = DecisionArtifactStore()
+
+policy_core = WishcodePolicyCore()
+
+governance_engine = GovernanceEngine(
+    identity_provider=identity_provider,
+    policy_core=policy_core,
+    artifact_store=artifact_store,
+)
+
+
+mcp = MCPServer(
+    "Wishcode-DLX-MCP",
+    middleware=[
+        create_governance_middleware(
+            governance_engine
+        )
+    ],
+)
+
+
+# ============================================================================
+# READ-ONLY TOOLS
+# ============================================================================
+
+@mcp.tool(
+    name="read_workspace",
+    description=(
+        "Read governed workspace state. "
+        "READ capability only."
+    ),
+)
+async def read_workspace(
+    query: str,
+) -> str:
+
+    # Draft implementation.
+    #
+    # Actual workspace data source must cross the explicit
+    # Wishcode ingestion boundary.
+
+    return (
+        f"READ_ONLY workspace query received: {query}"
+    )
+
+
+@mcp.tool(
+    name="inspect_record",
+    description=(
+        "Inspect a governed record without mutation."
+    ),
+)
+async def inspect_record(
+    record_id: str,
+) -> str:
+
+    return (
+        f"READ_ONLY record inspection: {record_id}"
+    )
+
+
+@mcp.tool(
+    name="get_governance_state",
+    description=(
+        "Return active governance state and canonical lineage."
+    ),
+)
+async def get_governance_state() -> dict[str, Any]:
+
+    return {
+        "policy": POLICY_NAME,
+        "policy_version": POLICY_VERSION,
+        "execution_mode": EXECUTION_MODE,
+
+        "canonical_dna": CANONICAL_DNA,
+
+        "lineage": {
+            "universe": UNIVERSE_ID,
+            "infinite_scale": INFINITE_SCALE,
+            "bound_entity": BOUND_ENTITY,
+            "ancestral_soil": ANCESTRAL_SOIL,
+            "iteration": ITERATION_SYMBOL,
+        },
+
+        "governance": {
+            "model_is_authority": False,
+            "model_can_authorize_execution": False,
+            "policy_core_is_authority": True,
+            "mutation_enabled": False,
+        },
+    }
+
+
+# ============================================================================
+# GOVERNANCE ARTIFACT RESOURCE
+# ============================================================================
+
+@mcp.resource(
+    "wishcode://decision-artifact/{decision_id}",
+    name="Decision Artifact",
+    description=(
+        "Retrieve a Decision Artifact reconstructing the "
+        "authorization boundary for a governed request."
+    ),
+)
+async def decision_artifact_resource(
+    decision_id: str,
+) -> str:
+
+    artifact = artifact_store.get(decision_id)
+
+    if artifact is None:
+        return json.dumps(
+            {
+                "status": "NOT_FOUND",
+                "decision_id": decision_id,
+            },
+            indent=2,
+            ensure_ascii=False,
+        )
+
+    return json.dumps(
+        artifact.as_dict(),
+        indent=2,
+        ensure_ascii=False,
+        default=str,
+    )
+
+
+# ============================================================================
+# CANONICAL LINEAGE RESOURCE
+# ============================================================================
+
+@mcp.resource(
+    "wishcode://lineage",
+    name="Canonical Lineage",
+    description=(
+        "Canonical Δ42:∞BΔ lineage binding."
+    ),
+)
+async def canonical_lineage_resource() -> str:
+
+    payload = {
+        "canonical_dna": CANONICAL_DNA,
+        "lineage": CANONICAL_LINEAGE,
+        "policy": POLICY_NAME,
+        "policy_version": POLICY_VERSION,
+        "status": "LOCKED",
+    }
+
+    return json.dumps(
+        payload,
+        indent=2,
+        ensure_ascii=False,
+    )
+
+
+# ============================================================================
+# SERVER ENTRYPOINT
+# ============================================================================
+
+if __name__ == "__main__":
+    # Transport selection remains deployment-specific.
+    #
+    # For the development draft, use the MCP SDK's normal server
+    # runner / transport configuration.
+    #
+    # Do not print protocol data to stdout when using stdio.
+    # Logging belongs on stderr.
+    mcp.run()
