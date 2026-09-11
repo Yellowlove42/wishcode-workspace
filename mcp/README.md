@@ -2,6 +2,7 @@
 
 **`DecisionArtifact`** — implemented as a `frozen=True` Python dataclass.
 
+A data packet is still bytes, but its authority is not allowed to float without provenance.
 
 ## Purpose
 
