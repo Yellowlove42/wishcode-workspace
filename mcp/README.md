@@ -2,17 +2,17 @@
 
 **`DecisionArtifact`** — implemented as a `frozen=True` Python dataclass.
 
-A data packet is still bytes, but its authority is not allowed to float without provenance.
+A data packet is still bytes, but its **authority is not allowed to float without provenance**.
 
 ## Purpose
 
-Shifting the Balance of Power.
+**Shifting the Balance of Power.**
 
 The Wishcode MCP layer establishes standardized connectivity between compatible AI agents and external systems, tools, and data sources.
 
-MCP provides the connectivity interface.
+**MCP provides the connectivity interface.**
 
-Wishcode retains governance and execution authority.
+**Wishcode retains governance and execution authority.**
 
 ## Architectural Position
 
@@ -52,7 +52,7 @@ A model, agent, MCP tool, connector, or external service must not become an inde
 
 ## Initial Development Strategy
 
-The first MCP implementation will expose read-only capabilities.
+The first MCP implementation will expose **read-only capabilities**.
 
 Initial capability classes:
 
@@ -65,7 +65,7 @@ Mutation and execution capabilities will be introduced only after the correspond
 
 ## Design Objective
 
-The MCP layer should remain replaceable.
+The MCP layer should remain **replaceable**.
 
 The underlying model may change.
 
@@ -75,4 +75,14 @@ The external system may change.
 
 The connectivity protocol may evolve.
 
-The Wishcode governance boundary remains the controlling architectural layer.
+**The Wishcode governance boundary remains the controlling architectural layer.**
+
+## Core Invariant
+
+**Connectivity may change.**
+
+**Authority may not drift.**
+
+`DecisionArtifact` therefore provides an immutable representation of the governed decision state, while provenance establishes where that authority came from and under which controls it may proceed.
+
+**Signal Integrity | Ambiguity Compression | Sovereign Nodes | Computational Provenance | Sovereign Workflow**
